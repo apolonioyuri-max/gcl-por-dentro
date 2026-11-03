@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GCL por dentro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: capa azul, quatro blocos de etapa que trocam de painel, um cartão por item com botão grande "Já mandei" */
+:root{
+  --bg:#F4F4F0; --card:#FFFFFF; --ink:#0F1220; --muted:#5C6376; --line:#E1E2E8;
+  --blue:#2B3BFF; --blue-deep:#1B26C9; --hl:#FFD84A; --hl-soft:#FFF4C2; --ok:#0E8A5F; --ok-soft:#E1F3EA; --chip:#EEF0F5;
+  --font-display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;
+  --font-body:"Hanken Grotesk","Helvetica Neue",Arial,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B0D15; --card:#151827; --ink:#F1F2F7; --muted:#9CA3B8; --line:#262A3C;
+    --blue:#3646FF; --blue-deep:#2431D6; --hl-soft:#2C2A12; --ok:#43D19B; --ok-soft:#14302A; --chip:#202436; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B0D15; --card:#151827; --ink:#F1F2F7; --muted:#9CA3B8; --line:#262A3C;
+  --blue:#3646FF; --blue-deep:#2431D6; --hl-soft:#2C2A12; --ok:#43D19B; --ok-soft:#14302A; --chip:#202436; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:100px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:17px;line-height:1.55;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--hl);outline-offset:2px}
+
+/* Capa */
+.hero{background:var(--blue);color:#fff;position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;right:-110px;top:-110px;width:340px;height:340px;border-radius:50%;background:var(--blue-deep);opacity:.7}
+.hero::after{content:"";position:absolute;right:6%;bottom:-70px;width:170px;height:170px;border-radius:50%;border:28px solid var(--hl);opacity:.9}
+@media(max-width:640px){.hero::after{display:none}}
+.hero-in{max-width:760px;margin:0 auto;padding:max(30px,env(safe-area-inset-top)) 20px 60px;position:relative;z-index:1}
+.tag{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.17);border-radius:999px;padding:6px 14px;font-weight:600;font-size:14px;margin-bottom:24px}
+.tag i{width:8px;height:8px;border-radius:50%;background:var(--hl)}
+.hi{font-family:var(--font-display);font-weight:700;font-size:24px;line-height:1.2;margin:0 0 8px}
+h1{font-family:var(--font-display);font-weight:800;font-size:clamp(48px,13vw,84px);line-height:.96;letter-spacing:-.03em;margin:0 0 22px;text-wrap:balance}
+.hero p.t{margin:0 0 14px;font-size:18px;max-width:580px}
+.meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
+.meta span{background:rgba(255,255,255,.15);border-radius:10px;padding:8px 12px;font-size:15px;font-weight:500}
+.meta b{color:var(--hl)}
+
+.wrap{max-width:760px;margin:0 auto;padding:0 20px 150px}
+
+/* Combinados */
+.rules{margin:-34px 0 0;position:relative;z-index:2;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0;list-style:none}
+.rules li{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 14px 16px;box-shadow:0 10px 28px -18px rgba(15,18,32,.5);font-size:15px;line-height:1.4}
+.rules b{display:block;font-family:var(--font-display);font-size:17px;line-height:1.2;margin-bottom:6px}
+.rules span{color:var(--muted)}
+.rules em{font-style:normal;display:inline-grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--hl);color:#14151C;font-family:var(--font-display);font-weight:800;font-size:14px;margin-bottom:10px}
+@media(max-width:640px){.rules{grid-template-columns:1fr}.rules li{display:grid;grid-template-columns:30px 1fr;gap:12px;padding:14px}.rules em{margin:0}}
+
+/* Seletor de etapas */
+.tabs{position:sticky;top:0;z-index:20;margin:26px -20px 0;padding:12px 20px;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.tabs-in{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tab{border:1.5px solid var(--line);background:var(--card);border-radius:16px;padding:10px 10px 11px;text-align:left;display:grid;gap:6px;transition:border-color .2s,background .2s,transform .2s}
+.tab:hover{transform:translateY(-1px)}
+.tab .n{font-family:var(--font-display);font-weight:800;font-size:22px;line-height:1;display:flex;align-items:center;justify-content:space-between}
+.tab .l{font-weight:600;font-size:14px;line-height:1.15}
+.dots{display:flex;gap:4px}
+.dots i{width:100%;max-width:18px;height:5px;border-radius:3px;background:var(--line);transition:background .25s}
+.dots i.on{background:var(--ok)}
+.tab.active{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tab.active .dots i{background:rgba(128,128,128,.45)}
+.tab.active .dots i.on{background:var(--hl)}
+.tab.full .n::after{content:"✓";font-size:16px;color:var(--ok)}
+.tab.active.full .n::after{color:var(--hl)}
+@media(max-width:480px){.tab{padding:9px 8px 10px;border-radius:14px}.tab .n{font-size:19px}.tab .l{font-size:12.5px}}
+
+/* Painel */
+.panel{padding-top:26px;animation:slide .35s ease}
+.panel[hidden]{display:none}
+@keyframes slide{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.p-head{margin-bottom:18px}
+.p-kicker{font-family:var(--font-display);font-weight:700;font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--blue)}
+:root[data-theme="dark"] .p-kicker{color:var(--hl)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .p-kicker{color:var(--hl)}}
+.p-head h2{font-family:var(--font-display);font-weight:800;font-size:clamp(34px,8vw,46px);line-height:1.05;letter-spacing:-.025em;margin:2px 0 6px}
+.p-head p{margin:0;color:var(--muted);font-size:18px}
+
+/* Cartão */
+.card{background:var(--card);border:1.5px solid var(--line);border-radius:24px;margin-bottom:16px;overflow:hidden;transition:border-color .3s,background .3s}
+.c-top{display:flex;align-items:center;gap:14px;padding:20px 20px 0}
+.badge{flex:none;width:42px;height:42px;border-radius:14px;background:var(--ink);color:var(--bg);font-family:var(--font-display);font-weight:800;font-size:19px;display:grid;place-items:center;transition:background .3s}
+.card h3{font-family:var(--font-display);font-weight:800;font-size:24px;line-height:1.15;letter-spacing:-.015em;margin:0;text-wrap:balance}
+.c-top h3{flex:1;min-width:0}
+.lvl{flex:none;align-self:flex-start;font-family:var(--font-display);font-weight:700;font-size:12px;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:5px 10px;margin-top:2px}
+.lvl.e{background:var(--hl);color:#14151C}
+.lvl.s{background:var(--chip);color:var(--muted)}
+@media(max-width:480px){.c-top{flex-wrap:wrap;row-gap:8px}.c-top h3{flex:1 1 calc(100% - 60px)}.lvl{order:3;margin:0 0 0 56px}}
+.fold{display:grid;grid-template-rows:1fr;transition:grid-template-rows .4s ease}
+.card.shut .fold{grid-template-rows:0fr}
+.fold>div{overflow:hidden}
+.note{margin:14px 20px 0;background:var(--hl-soft);border-radius:14px;padding:12px 14px;font-size:16px;line-height:1.45}
+.note b{font-family:var(--font-display);font-weight:700;display:block;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px;opacity:.75}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;padding:18px 20px 6px}
+.grid.one{grid-template-columns:1fr}
+@media(max-width:640px){.grid{grid-template-columns:1fr;gap:18px}}
+.blk h4{font-family:var(--font-display);font-weight:700;font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--blue);margin:0 0 8px}
+:root[data-theme="dark"] .blk h4{color:#A3ACFF}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .blk h4{color:#A3ACFF}}
+.blk p{margin:0 0 12px}
+.blk ul{margin:0;padding:0;list-style:none;display:grid;gap:9px}
+.blk li{position:relative;padding-left:22px}
+.blk li::before{content:"";position:absolute;left:2px;top:.55em;width:9px;height:9px;border-radius:3px;background:var(--hl)}
+.legend{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;background:var(--chip);border-radius:14px;padding:10px 12px}
+.legend span{font-size:13px;color:var(--muted);flex-basis:100%}
+.legend code{font-family:var(--font-body);font-weight:700;font-size:17px}
+.copy{margin-left:auto;border:0;background:var(--ink);color:var(--bg);border-radius:10px;padding:8px 14px;font-weight:700;font-size:14px;min-width:84px}
+.copy.ok{background:var(--ok);color:#fff}
+
+/* Botão de enviado */
+.sendrow{padding:14px 20px 20px}
+.send{width:100%;border:2px solid var(--ink);background:transparent;border-radius:16px;padding:14px 18px;font-family:var(--font-display);font-weight:700;font-size:18px;display:flex;align-items:center;justify-content:center;gap:10px;transition:all .25s}
+.send:hover{background:var(--ink);color:var(--bg)}
+.send .ic{width:24px;height:24px;border-radius:50%;border:2px solid currentColor;display:grid;place-items:center}
+.send .ic svg{width:14px;height:14px;stroke:currentColor;stroke-width:3.4;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:22;stroke-dashoffset:22;transition:stroke-dashoffset .3s .05s}
+.card.done{border-color:var(--ok);background:var(--ok-soft)}
+.card.done .badge{background:var(--ok);color:#fff}
+.card.done .send{background:var(--ok);border-color:var(--ok);color:#fff}
+.card.done .send .ic svg{stroke-dashoffset:0}
+.card.done .send .tx::before{content:"Enviado"}
+.card:not(.done) .send .tx::before{content:"Já mandei"}
+.card.done .undo{display:block}
+.undo{display:none;text-align:center;background:none;border:0;color:var(--muted);font-size:14px;font-weight:600;text-decoration:underline;text-underline-offset:3px;padding:0 0 18px;width:100%}
+.card.done .sendrow{padding-bottom:10px}
+.card.done .c-top{padding-bottom:6px}
+
+/* Navegação entre etapas */
+.next{display:flex;gap:10px;margin-top:8px}
+.next button{flex:1;border:0;border-radius:16px;padding:16px;font-family:var(--font-display);font-weight:800;font-size:18px}
+.next .go{background:var(--blue);color:#fff}
+.next .go.pulse{animation:pulse 1.4s ease-in-out infinite}
+.next .back{flex:0 0 auto;background:var(--chip);padding-left:22px;padding-right:22px}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(43,59,255,.5)}50%{box-shadow:0 0 0 10px rgba(43,59,255,0)}}
+.stepok{display:none;margin:0 0 16px;background:var(--ok);color:#fff;border-radius:16px;padding:14px 16px;font-weight:600}
+.stepok.show{display:block;animation:slide .35s ease}
+
+/* Fim */
+.thanks{display:none;margin-top:26px;background:var(--ink);color:var(--bg);border-radius:26px;padding:34px 24px;text-align:center}
+.thanks.show{display:block;animation:slide .5s ease}
+.thanks h2{font-family:var(--font-display);font-weight:800;font-size:36px;line-height:1.05;margin:0 0 10px}
+.thanks p{margin:0;opacity:.85}
+.closing{margin:34px 0 0;color:var(--muted);text-align:center;font-size:16px}
+
+/* Barra de baixo */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--card);border-top:1px solid var(--line);padding:10px 20px calc(10px + env(safe-area-inset-bottom))}
+.dock-in{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:14px}
+.ring{position:relative;width:46px;height:46px;flex:none}
+.ring svg{width:46px;height:46px;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:5}
+.ring .bg{stroke:var(--line)}
+.ring .fg{stroke:var(--blue);stroke-linecap:round;transition:stroke-dashoffset .5s ease}
+:root[data-theme="dark"] .ring .fg{stroke:var(--hl)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .ring .fg{stroke:var(--hl)}}
+.ring b{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--font-display);font-size:14px}
+.dock-txt{flex:1;min-width:0;line-height:1.25}
+.dock-txt strong{display:block;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dock-txt span{font-size:14px;color:var(--muted);white-space:nowrap}
+.wa{background:var(--ok);color:#fff;text-decoration:none;font-weight:700;border-radius:12px;padding:12px 16px;white-space:nowrap;font-size:15px}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:50}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-in">
+    <span class="tag"><i></i>Pesquisa de campo</span>
+    <p class="hi">Oi, Bru! Obrigado por topar me ajudar.</p>
+    <h1>GCL por dentro</h1>
+    <p class="t">Estou montando uma plataforma de anúncios para concorrer com o GCL, e você já esteve ali dentro como anunciante. Eu só vejo o lado de fora, então o seu olhar vai me ajudar muito.</p>
+    <p class="t">O que eu preciso é simples: abrir a sua conta, dar uma volta pelas telas abaixo e me mandar print do que aparecer. Quando tiver uma pergunta, responde do seu jeito, como se estivesse me contando por mensagem. Não precisa analisar nem organizar nada.</p>
+    <div class="meta"><span><b>30 a 40</b> minutos</span><span><b>10</b> itens em 4 etapas</span><span>Faça aos poucos, no seu tempo</span></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <ul class="rules">
+    <li><em>1</em><div><b>Na ordem que quiser</b><span>Cada etapa fecha sozinha. Os itens marcados "Se der" podem ser pulados.</span></div></li>
+    <li><em>2</em><div><b>Legenda com o número</b><span>Cada item tem a legenda pronta pra copiar. É só pra eu não me perder.</span></div></li>
+    <li><em>3</em><div><b>Sem gastar nada</b><span>Se alguma tela pedir pagamento pra abrir, é só pular e me avisar.</span></div></li>
+  </ul>
+
+  <div class="tabs"><div class="tabs-in" id="tabs" role="tablist" aria-label="Etapas"></div></div>
+
+  <div id="panels"></div>
+
+  <section class="thanks" id="thanks" aria-live="polite">
+    <h2>Acabou. Valeu mesmo, Bru.</h2>
+    <p>Você me poupou muito trabalho. Qualquer coisa que faltar, eu te chamo.</p>
+  </section>
+
+  <p class="closing">Muito obrigado, de verdade. Manda tudo pelo WhatsApp, por etapa ou de uma vez. Se bater qualquer dúvida no caminho, me chama.</p>
+</main>
+
+<div class="dock">
+  <div class="dock-in">
+    <div class="ring"><svg viewBox="0 0 46 46" aria-hidden="true"><circle class="bg" cx="23" cy="23" r="19"/><circle class="fg" id="fg" cx="23" cy="23" r="19" stroke-dasharray="119.38" stroke-dashoffset="119.38"/></svg><b id="ringTxt">0</b></div>
+    <div class="dock-txt"><strong id="dockMain">Vamos começar</strong><span id="dockSub">0 de 10 itens enviados</span></div>
+    <div id="helpSlot"></div>
+  </div>
+</div>
+<canvas id="confetti" aria-hidden="true"></canvas>
+
+<script>
+/* Número com DDI e DDD, só dígitos. Ex.: "5511999999999". Vazio = sem botão. */
+var WHATSAPP = "";
+
+var STEPS = [
+  { tab:"Preços", t:"Preços", sub:"A mais importante. Se só der pra fazer uma etapa, faça esta.", items:[
+    { k:1, lvl:"e", title:"Os planos de anúncio", why:"É a base pra eu definir meus preços.",
+      print:"A tela com todos os planos e valores.",
+      ask:["Quanto custa cada plano?","Tem desconto se pagar por mais tempo?","Renova sozinho? Como se cancela?","Como se paga?","Se alguma tela não existir ou for diferente do que parece, me avisa."], file:"1 – planos" },
+    { k:2, lvl:"e", title:"Os destaques pagos (as espadas)", why:"Sei que existem 20 níveis, mas não sei o preço de nenhum.",
+      print:"A tela de cada nível, com o preço e a duração.",
+      ask:["O que muda de verdade em cada nível?","Se você lembrar: quanto o anúncio subiu ou quantos contatos a mais rendeu?"], file:"2 – destaques" },
+    { k:3, lvl:"e", title:"Outras cobranças", why:"É onde costuma ter taxa escondida.",
+      print:"Qualquer cobrança além do plano: trocar de cidade, foto extra, vídeo, destaque na capa.",
+      ask:["O preço muda de uma cidade pra outra?","São Paulo custa diferente do resto?"], file:"3 – outras cobranças" }
+  ]},
+  { tab:"Anúncio", t:"Como funciona", sub:"Criar, aprovar e acompanhar o anúncio.", items:[
+    { k:4, lvl:"e", title:"Criar o anúncio e ser aprovado", why:"Me ajuda a decidir o que exigir de quem anuncia.",
+      print:"Cada tela do cadastro do anúncio e cada passo da verificação.",
+      ask:["O que é obrigatório preencher?","Precisa mostrar o rosto? Quantas fotos?","Quanto tempo demora até aprovarem?","A verificação é paga?","O que o selo de verificado pede de verdade?"], file:"4 – criação e verificação" },
+    { k:5, lvl:"s", title:"O painel do anunciante", why:"Quero ver o que o anunciante acompanha no dia a dia.",
+      print:"Todas as telas do painel.",
+      ask:["Que números aparecem? (visitas, cliques)","Como se faz pra subir ou renovar o anúncio?"], file:"5 – painel" }
+  ]},
+  { tab:"Cliente", t:"Cliente e proteção", sub:"O que o cliente enfrenta e o que protege quem anuncia.", items:[
+    { k:6, lvl:"e", title:"O lado do cliente", why:"Quero saber se o GCL cobra de quem contrata.",
+      print:"O cadastro do cliente e qualquer tela de plano.",
+      ask:["O que o cliente precisa fazer ou pagar pra ver o contato do anunciante?"], file:"6 – cliente" },
+    { k:7, lvl:"e", title:"Câmera Com Local e vídeo", why:"Sei que o cliente paga por minuto, mas não sei quanto sobra pro anunciante.",
+      print:"As telas de ativação, as regras e qualquer tela de ganhos.",
+      ask:["O anunciante recebe uma parte? Quanto?","Como é feito o saque?"], file:"7 – câmera e vídeo" },
+    { k:8, lvl:"s", title:"Segurança e suporte", why:"Quero ver o que protege o anunciante hoje e o que está faltando.",
+      print:"O que existir de denúncia, bloqueio de cliente e consulta de número, e o canal de suporte.",
+      ask:["O suporte responde?","Em quanto tempo?"], file:"8 – segurança e suporte" }
+  ]},
+  { tab:"Fechar", t:"Pra fechar", sub:"Um print e um áudio.", items:[
+    { k:9, lvl:"s", title:"Os termos de uso", why:"Quero ver as regras de punição e de reembolso.",
+      print:"A página de termos e as regras do anunciante.", ask:[], file:"9 – termos" },
+    { k:10, lvl:"e", title:"Um áudio de 3 a 4 minutos", why:"É o que print nenhum mostra: a sua vivência.", audio:true,
+      print:"Nada de print. Grave um áudio pelo próprio WhatsApp e me mande.",
+      ask:["Quanto você gastou no total e o que recebeu em troca?","O que valeu a pena e o que foi dinheiro jogado fora?","O que o GCL faz bem e eu não deveria perder?","O que mais te irritou como anunciante?","Tem algo que eu não perguntei e que você acha importante eu saber?"], file:"10 – áudio" }
+  ]}
+];
+
+(function(){
+  var KEY="gcl-por-dentro-v3";
+  var total=0; STEPS.forEach(function(s){ total+=s.items.length; });
+  var state={}; try{ state=JSON.parse(localStorage.getItem(KEY)||"{}"); }catch(e){ state={}; }
+  var active=0;
+  try{ var m=/^#etapa-(\d)$/.exec(location.hash); if(m && STEPS[+m[1]-1]) active=+m[1]-1; }catch(e){}
+  function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+  var CHK='<span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>';
+
+  var tabsEl=document.getElementById("tabs"), panelsEl=document.getElementById("panels");
+
+  STEPS.forEach(function(s,si){
+    var b=document.createElement("button");
+    b.className="tab"; b.type="button"; b.setAttribute("role","tab"); b.dataset.si=si;
+    b.innerHTML='<span class="n">'+(si+1)+'</span><span class="l">'+esc(s.tab)+'</span><span class="dots">'+s.items.map(function(){return "<i></i>";}).join("")+'</span>';
+    b.addEventListener("click",function(){ show(si,true); });
+    tabsEl.appendChild(b);
+
+    var p=document.createElement("section");
+    p.className="panel"; p.id="etapa-"+(si+1); p.hidden=true; p.dataset.si=si;
+    var h='<div class="p-head"><span class="p-kicker">Etapa '+(si+1)+' de '+STEPS.length+'</span><h2>'+esc(s.t)+'</h2><p>'+esc(s.sub)+'</p></div>'+
+          '<div class="stepok">Etapa completa. Obrigado!</div>';
+    s.items.forEach(function(it){
+      var legend = it.audio
+        ? '<div class="legend"><span>Como mandar</span><code>Áudio no WhatsApp</code></div>'
+        : '<div class="legend"><span>Legenda do print</span><code>'+esc(it.file)+'</code><button class="copy" type="button" data-copy="'+esc(it.file)+'">Copiar</button></div>';
+      var asks = it.ask.length ? '<section class="blk"><h4>Me conte</h4><ul>'+it.ask.map(function(a){return "<li>"+esc(a)+"</li>";}).join("")+'</ul></section>' : "";
+      h+='<article class="card" data-k="'+it.k+'">'+
+        '<div class="c-top"><span class="badge">'+it.k+'</span><h3>'+esc(it.title)+'</h3><span class="lvl '+it.lvl+'">'+(it.lvl==="e"?"Essencial":"Se der")+'</span></div>'+
+        '<div class="fold"><div>'+
+          '<p class="note"><b>Pra que serve</b>'+esc(it.why)+'</p>'+
+          '<div class="grid'+(it.ask.length?'':' one')+'">'+
+            '<section class="blk"><h4>'+(it.audio?"O que fazer":"Mande print de")+'</h4><p>'+esc(it.print)+'</p>'+legend+'</section>'+asks+
+          '</div>'+
+        '</div></div>'+
+        '<div class="sendrow"><button class="send" type="button" aria-pressed="false">'+CHK+'<span class="tx"></span></button></div>'+
+        '<button class="undo" type="button">Desfazer</button>'+
+      '</article>';
+    });
+    var last = si===STEPS.length-1;
+    h+='<div class="next">'+(si>0?'<button class="back" type="button" data-dir="-1" aria-label="Etapa anterior">←</button>':'')+
+       (last?'':'<button class="go" type="button" data-dir="1">Próxima etapa →</button>')+'</div>';
+    p.innerHTML=h; panelsEl.appendChild(p);
+  });
+
+  var cards=Array.prototype.slice.call(document.querySelectorAll(".card"));
+  var tabs=Array.prototype.slice.call(tabsEl.children);
+  var panels=Array.prototype.slice.call(panelsEl.children);
+  var CIRC=119.38, celebrated=false;
+
+  function save(){ try{ localStorage.setItem(KEY,JSON.stringify(state)); }catch(e){} }
+
+  function show(i,scroll){
+    active=i;
+    panels.forEach(function(p,j){ p.hidden=(j!==i); });
+    tabs.forEach(function(t,j){ t.classList.toggle("active",j===i); t.setAttribute("aria-selected",j===i); });
+    try{ history.replaceState(null,"","#etapa-"+(i+1)); }catch(e){}
+    if(scroll){ var y=tabsEl.parentElement.getBoundingClientRect().top+window.scrollY-2; window.scrollTo({top:Math.max(0,y),behavior:"smooth"}); }
+  }
+
+  function paint(){
+    var n=0;
+    cards.forEach(function(c){
+      var on=!!state[c.dataset.k];
+      c.classList.toggle("done",on); c.classList.toggle("shut",on);
+      c.querySelector(".send").setAttribute("aria-pressed",on);
+      if(on) n++;
+    });
+    STEPS.forEach(function(s,si){
+      var ds=tabs[si].querySelectorAll(".dots i"), k=0;
+      s.items.forEach(function(it,ii){ var on=!!state[it.k]; ds[ii].classList.toggle("on",on); if(on) k++; });
+      var full=k===s.items.length;
+      tabs[si].classList.toggle("full",full);
+      panels[si].querySelector(".stepok").classList.toggle("show",full);
+      var go=panels[si].querySelector(".go"); if(go) go.classList.toggle("pulse",full);
+    });
+    document.getElementById("fg").style.strokeDashoffset=CIRC-(CIRC*n/total);
+    document.getElementById("ringTxt").textContent=n;
+    document.getElementById("dockMain").textContent = n===0?"Vamos começar": n===total?"Tudo enviado!": n>=total/2?"Mais da metade, falta pouco":"Boa, continua";
+    document.getElementById("dockSub").textContent=n+" de "+total+" itens enviados";
+    var done=n===total;
+    document.getElementById("thanks").classList.toggle("show",done);
+    return done;
+  }
+
+  cards.forEach(function(c){
+    var k=c.dataset.k;
+    function toggle(){
+      if(state[k]) delete state[k]; else state[k]=1;
+      save();
+      var all=paint();
+      if(all && !celebrated){ celebrated=true; burst(); } else if(!all){ celebrated=false; }
+    }
+    c.querySelector(".send").addEventListener("click",toggle);
+    c.querySelector(".undo").addEventListener("click",toggle);
+    c.querySelector(".c-top").addEventListener("click",function(){ if(c.classList.contains("done")) c.classList.toggle("shut"); });
+  });
+
+  document.querySelectorAll(".next button").forEach(function(b){
+    b.addEventListener("click",function(){ var i=active+(+b.dataset.dir); if(STEPS[i]) show(i,true); });
+  });
+
+  document.querySelectorAll(".copy").forEach(function(b){
+    b.addEventListener("click",function(){
+      var t=b.dataset.copy;
+      function flag(ok){ b.textContent=ok?"Copiado":"Digite: "+t; b.classList.toggle("ok",ok); setTimeout(function(){ b.textContent="Copiar"; b.classList.remove("ok"); },1800); }
+      try{ navigator.clipboard.writeText(t).then(function(){flag(true);},function(){flag(false);}); }catch(e){ flag(false); }
+    });
+  });
+
+  if(WHATSAPP){ document.getElementById("helpSlot").innerHTML='<a class="wa" href="https://wa.me/'+WHATSAPP+'" rel="noopener">Dúvida? WhatsApp</a>'; }
+
+  function burst(){
+    if(window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var cv=document.getElementById("confetti"), cx=cv.getContext("2d");
+    cv.width=innerWidth; cv.height=innerHeight;
+    var cols=["#2B3BFF","#FFD84A","#0E8A5F","#FF5C7A","#FFFFFF"], ps=[], i;
+    for(i=0;i<150;i++){ ps.push({x:cv.width/2,y:cv.height*0.7,vx:(Math.random()-.5)*15,vy:-Math.random()*17-4,s:Math.random()*7+4,c:cols[i%cols.length],r:Math.random()*6,vr:(Math.random()-.5)*.4}); }
+    var f=0;
+    (function tick(){
+      cx.clearRect(0,0,cv.width,cv.height);
+      ps.forEach(function(p){ p.vy+=.45; p.x+=p.vx; p.y+=p.vy; p.r+=p.vr; cx.save(); cx.translate(p.x,p.y); cx.rotate(p.r); cx.fillStyle=p.c; cx.fillRect(-p.s/2,-p.s/3,p.s,p.s*.6); cx.restore(); });
+      if(++f<120) requestAnimationFrame(tick); else cx.clearRect(0,0,cv.width,cv.height);
+    })();
+  }
+
+  show(active,false);
+  celebrated=paint();
+})();
+</script>
+</body>
+</html>
